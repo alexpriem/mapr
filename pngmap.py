@@ -231,12 +231,22 @@ class mapmaker():
             shpRecords=self.shaperecords            
         if self.minx is None:
             self.autoscale(shpRecords)
-        normalize=self.shape_normalize                    
+        normalize=self.shape_normalize
+
+        shape_ids=[]
+        for i in range(0,len(shpRecords)):
+            dbfdata=shpRecords[i]['dbf_data']
+            shape_id=dbfdata.get(field_id)
+            shape_ids.append(int(shape_id))
+#        print shape_ids
+        for regiokey in mapdata.keys():            
+            if (regiokey not in shape_ids) and self.warnings:
+                print 'warning: regiokey %d not found in shapefile' % regiokey
             
 
         bordercolor=[c/255.0 for c in bordercolor]        
         for i in range(0,len(shpRecords)):
-            dbfdata=shpRecords[i]['dbf_data']            
+            dbfdata=shpRecords[i]['dbf_data']
             shape_id=dbfdata.get(field_id)
             
             colorval=None
