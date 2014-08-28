@@ -70,6 +70,7 @@ class mapmaker():
             ['movie',False,False,''],
             ['movie_start',None,False,''],
             ['movie_end',None,False,''],
+            ['warnings',True,False,'']
         ]
 
 
@@ -248,6 +249,8 @@ class mapmaker():
                 colorval=self.rescale_color(val,False)
             #    print shape_id, mapdata[shape_id], colorval
             polygons=shpRecords[i]['shp_data'].get('parts',{})
+            if len(polygons)==0 and self.warnings:
+                print 'warning: empty polygon in shapefile'
             for shape_nr, poly in enumerate(polygons): 
 
                 #print i,shape_nr
