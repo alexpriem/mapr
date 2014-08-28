@@ -36,6 +36,7 @@ class mapmaker():
             
             ['shapefile','',True,''],
             ['shape_key','',True,''],
+            ['shape_normalize',None,False,''],
             ['shape_borderwidth',0.5,False,''],
             ['shape_bordercolor',(0x50,0x50,0x50),False,''],
             
@@ -229,15 +230,20 @@ class mapmaker():
             shpRecords=self.shaperecords            
         if self.minx is None:
             self.autoscale(shpRecords)
-
+        normalize=self.shape_normalize                    
+            
 
         bordercolor=[c/255.0 for c in bordercolor]        
         for i in range(0,len(shpRecords)):
             dbfdata=shpRecords[i]['dbf_data']            
             shape_id=dbfdata.get(field_id)
+            
             colorval=None
             if shape_id is not None:
                 val=mapdata.get(int(shape_id),0)
+                if normalize:
+                    normalize_val=dbfdata.get(normalize)
+                    val=val/normalize_val
                # print shape_id,val
                 colorval=self.rescale_color(val,False)
             #    print shape_id, mapdata[shape_id], colorval
@@ -258,7 +264,7 @@ class mapmaker():
                     xList.append(tempx)
                     yList.append(tempy)
                 if (colorval is not None) and (fill==True):
-                   # print 'fill',colorval
+                   # print 'fill',colorval                    
                     h=graph.fill(xList, yList, facecolor=colorval, edgecolor=bordercolor, linewidth=borderwidth)
                   #  print xList[1], yList[1]
                 else:
