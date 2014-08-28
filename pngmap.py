@@ -224,7 +224,7 @@ class mapmaker():
         return colorval
 
 
-    def plot_shapefile (self, shpRecords, mapdata, field_id, graph, bordercolor, borderwidth, fill=True):
+    def plot_shapefile (self, shpRecords, mapdata, field_id, graph, bordercolor, borderwidth):
 
         #print bordercolor, borderwidth, fill
         if shpRecords is None:
@@ -276,7 +276,7 @@ class mapmaker():
                     tempy = float(point['y']) # + self.offsety
                     xList.append(tempx)
                     yList.append(tempy)
-                if (colorval is not None) and (fill==True):
+                if colorval is not None:
                    # print 'fill',colorval                    
                     h=graph.fill(xList, yList, facecolor=colorval, edgecolor=bordercolor, linewidth=borderwidth)
                   #  print xList[1], yList[1]
@@ -284,6 +284,37 @@ class mapmaker():
                     l=graph.plot(xList, yList, color=bordercolor, linewidth=borderwidth)
     
 
+
+    def plot_outline (self, shpRecords, field_id, graph, bordercolor, borderwidth):
+
+        #print bordercolor, borderwidth, fill
+        if shpRecords is None:
+            shpRecords=self.shaperecords            
+        if self.minx is None:
+            self.autoscale(shpRecords)
+            
+
+        bordercolor=[c/255.0 for c in bordercolor]        
+        for i in range(0,len(shpRecords)):            
+            polygons=shpRecords[i]['shp_data'].get('parts',{})
+            if len(polygons)==0 and self.warnings:
+                print 'warning: empty polygon in shapefile'
+            for shape_nr, poly in enumerate(polygons): 
+
+                #print i,shape_nr
+                xList = []
+                yList = []                  
+                point=poly['points'][0]        
+                tempx = float(point['x']) # + self.offsetx
+                tempy = float(point['y']) # + self.offsety
+                xList.append(tempx)
+                yList.append(tempy)
+                for point in poly['points']:
+                    tempx = float(point['x']) # + self.offsetx 
+                    tempy = float(point['y']) # + self.offsety
+                    xList.append(tempx)
+                    yList.append(tempy)
+                    l=graph.plot(xList, yList, color=bordercolor, linewidth=borderwidth)
 
 
 
@@ -418,12 +449,12 @@ class mapmaker():
         self.gradient_min=self.transform_val(self.gradient_min)
         
         #colormap toevoegen            
-        self.plot_shapefile(map_shp,mapdata, self.shape_key, ax, self.shape_bordercolor, self.shape_borderwidth, fill=True)
+        self.plot_shapefile(map_shp,mapdata, self.shape_key, ax, self.shape_bordercolor, self.shape_borderwidth)
 
         outline_shp=self.load_shapefile(self.outline_shapefile)
         borderwidth=self.outline_borderwidth
         bordercolor=self.outline_bordercolor
-        self.plot_shapefile(outline_shp,mapdata, self.outline_key, ax, self.outline_bordercolor, self.outline_borderwidth, fill=False)
+        self.plot_outline(outline_shp, self.outline_key, ax, self.outline_bordercolor, self.outline_borderwidth)
 
         
         colorbar_x=self.colorbar_x
