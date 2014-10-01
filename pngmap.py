@@ -60,7 +60,8 @@ class mapmaker():
             ['title',None,False,''],
             ['ticks',None,False,''],
             ['ticklabels',None,False,''],
-                    
+
+            ['colormap','blue',False,''],            
             ['gradient_transform','log10',False,''],            
             ['gradient_min',0,False,''],
             ['gradient_max','max',False,''],
@@ -72,23 +73,7 @@ class mapmaker():
             ['movie_end',None,False,''],
             ['warnings',True,False,'']
         ]
-
-
-        default_colormaps=['blue','gray',
-                           'cbs_blue','cbs_green', 'cbs_red', 'cbs_hot',
-                            'terrain', 'coolwarm',
-                            'hot', 'hot2','ygb']
-        colormap=args.get('colormap','cbs_blue')
-        if colormap not in default_colormaps:
-            raise RuntimeError ('allowed colormaps: %s' % default_colormaps)
-
-        default_transforms=['linear','sqrt','log2','log10']
-        transform=args.get('transform','linear')
-        if transform not in default_transforms:
-            raise RuntimeError ('allowed colormaps: %s' % default_transforms)
-
-
-                           
+                        
         for varinfo in defaults:
             varname=varinfo[0]
             defaultval=varinfo[1]
@@ -99,6 +84,20 @@ class mapmaker():
                 if required:
                     raise RuntimeError('Missing %s' % varname)
                 args[varname]=defaultval
+
+        default_colormaps=['blue','green', 'red',
+                           'blue2','gray',
+                           'terrain', 'coolwarm',
+                           'hot', 'hot2', 'hot3','ygb']
+        colormap=args['colormap']
+        if colormap not in default_colormaps:
+            raise RuntimeError ('allowed colormaps: %s' % default_colormaps)
+
+        default_transforms=['linear','sqrt','log2','log10']
+        transform=args['gradient_transform']
+        if transform not in default_transforms:
+            raise RuntimeError ('allowed colormaps: %s' % default_transforms)
+
         return args 
 
 
