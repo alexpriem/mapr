@@ -48,6 +48,11 @@ class mapmaker():
 
             ['width',8,False,''],
             ['height',8,False,''],
+
+            ['pxwidth',500,False,''],
+            ['pxheight',500,False,''],
+            
+            
             ['offset_x',0.0,False,''],
             ['offset_y',0.0,False,''],
             ['zoom',None,False,''],
@@ -225,7 +230,8 @@ class mapmaker():
 
     def plot_shapefile (self, shpRecords, mapdata, field_id, graph, bordercolor, borderwidth):
 
-        #print bordercolor, borderwidth, fill
+        #print bordercolor, border
+
         if shpRecords is None:
             shpRecords=self.shaperecords            
         if self.minx is None:
@@ -418,13 +424,17 @@ class mapmaker():
         t0=datetime.datetime.now()        
         map_shp=self.load_shapefile(self.shapefile)
         self.autoscale(self.zoom)
+
+        if self.output=='png':        
+            fig = pyplot.figure(figsize=(8, 8), dpi=self.resolution )    
+            ax = fig.add_subplot(1,1,1)
         
-        fig = pyplot.figure(figsize=(8, 8), dpi=self.resolution )    
-        ax = fig.add_subplot(1,1,1)
-        
-        ax.set_xlim (self.minx, self.maxx)
-        ax.set_ylim (self.miny, self.maxy)
-        ax.axis('off')
+            ax.set_xlim (self.minx, self.maxx)
+            ax.set_ylim (self.miny, self.maxy)
+            ax.axis('off')
+        else:
+            svg=''
+            self.fignr=0
         
         title=self.title
         date=self.dateselection
@@ -435,24 +445,47 @@ class mapmaker():
         
             movie_x=float(self.label_x)
             movie_y=float(self.label_y)
-            fig.text (movie_x,movie_y,movie_txt)
+            if self.output=='png':
+                fig.text (movie_x,movie_y,movie_txt)
         
         title_x=getattr(self,'title_x',0.5-len(self.title)*0.0075)
         title_y=getattr(self,'title_x',0.95)
-        
-        fig.text (title_x,title_y,self.title)
+
+        if self.output=='png':
+            fig.text (title_x,title_y,self.title)
 
         self.data_max=self.gradient_max
         self.data_min=self.gradient_min
         self.gradient_max=self.transform_val(self.gradient_max)
         self.gradient_min=self.transform_val(self.gradient_min)
-        
-        #colormap toevoegen            
-        self.plot_shapefile(map_shp,mapdata, self.shape_key, ax, self.shape_bordercolor, self.shape_borderwidth)
+
+
+#def plot_shapefile (self, shpRecords, mapdata, field_id, graph, bordercolor, borderwidth):
+#def save_shapefile_as_svg (self, shpRecords=None, field_id=None,classname='', include_data_regio=True, closepath=False):
+
+    
+        #colormap toevoegen
+        if self.output=='png':
+            self.plot_shapefile(map_shp,mapdata, self.shape_key, ax, self.shape_bordercolor, self.shape_borderwidth)
+        else:
+            svg+=self.save_shapefile_as_svg(map_shp, mapdata, self.shape_key)
+
+        if self.output!='png':
+            f=open(self.outfile+'.svg','w')
+            hdr='<svg xmlns="http://www.w3.org/2000/svg"\n xmlns:xlink="http://www.w3.org/1999/xlink"\n'
+            hdr+=' height="%d" width="%d"  viewBox="%.5f %.5f %.5f %.5f" >\n' %  (self.pxwidth, self.pxheight, 0,0, self.width, self.height)   #(self.minx, self.miny, self.maxx, self.max)
+
+            svg=hdr+svg+'\n</svg>'
+            
+            f.write(svg)
+            f.close()
+            sys.exit()
+            
 
         outline_shp=self.load_shapefile(self.outline_shapefile)
         borderwidth=self.outline_borderwidth
         bordercolor=self.outline_bordercolor
+        
         self.plot_outline(outline_shp, self.outline_key, ax, self.outline_bordercolor, self.outline_borderwidth)
 
         
@@ -539,6 +572,74 @@ class mapmaker():
 
 
 
+        
+
+
+    def save_shapefile_as_svg (self, shpRecords=None, mapdata=None, field_id=None,classname='', closepath=False):
+
+        if shpRecords is None:
+            shpRecords=self.shaperecords            
+        if self.minx is None:
+            self.autoscale(shpRecords)
+        minx=self.minx
+        miny=self.miny
+        dx=self.dx
+        dy=self.dy
+        width=self.width
+        height=self.height
+        self.fignr+=1              
+        borderwidth=0.01
+        bordercolor='rgb(0,0,0)'
+        
+        svg='<g id="chart_%d">\n ' % self.fignr
+        classtxt=''
+        if classname!='':
+            classtxt='class="'+classname+'"'
+        for i in range(0,len(shpRecords)):
+            dbfdata=shpRecords[i]['dbf_data']            
+            shape_id=dbfdata[field_id]
+            colorval=None
+            if shape_id is not None:
+                val=mapdata.get(int(shape_id),0)
+                if self.shape_normalize:
+                    normalize_val=dbfdata.get(self.shape_normalize)
+                    val=val/normalize_val
+                colorval=self.rescale_color(val,False)
+                fillcolor='rgb(%d,%d,%d)' % (colorval[0]*255,colorval[1]*255,colorval[2]*255)
+               # 
+                
+                
+            polygons=shpRecords[i]['shp_data'].get('parts',{})
+            if len(polygons)==0 and self.warnings:
+                print 'warning: empty polygon in shapefile'
+            for shape_nr, poly in enumerate(polygons): 
+                
+                x = []
+                y = []
+                s='<path %s stroke="%s" fill="%s" stroke-width="%.5f" id="a%s_%d" data-regio="%s" d=" ' % (classtxt,bordercolor, fillcolor, borderwidth, shape_id, shape_nr, shape_id)
+                point=poly['points'][0]        
+                tempx = ((float(point['x'])-minx)/dx)*width
+                tempy = height - ((float(point['y'])-miny)/dy)*height
+                s+='M %.2f %.2f' % (tempx, tempy)
+                for point in poly['points']:
+                    tempx = ((float(point['x'])-minx)/dx)*width
+                    tempy = height - ((float(point['y'])-miny)/dy)*height
+                    x.append(tempx)
+                    y.append(tempy)
+                    
+                    s+='L%.2f %.2f' % (tempx,tempy)                
+                s+=' z'
+                s+='" />\n  '
+            svg+=s
+        svg+='</g>\n'
+        
+        return svg
+
+
+
+
+
+
     def niceround(self, val):
         upper_lim=[0,5,10,50,100,500,1000,5000,10000,50000,100000,500000,1000000]
         prev=upper_lim[0]
@@ -556,14 +657,17 @@ class mapmaker():
     def makemap(self):
                 
         mapdata=self.read_csvfile()
-        if self.movie==False:
-            self.save_map (mapdata)    
+        if self.movie==False:        
+            self.save_map (mapdata)
+
+                
+            
         else:        
             self.nr=0
             for date,mapdata_day in mapdata.items():
                 self.nr+=1
                 self.date=date                
-                self.save_map(day_mapdata)
+                self.save_png(day_mapdata)
             
         
 
