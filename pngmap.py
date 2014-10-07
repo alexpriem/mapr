@@ -9,6 +9,14 @@ import datetime
 
 
 
+colormap=[(255,255,255),
+          (220,230,163),
+          (180,206,23),
+          (110,183,37),
+          (0,158,55)]
+
+colormap=[(c[0]/255.0,c[1]/255.0,c[2]/255.0) for c in colormap]
+
 class mapmaker():
     def __init__(self, args):
 
@@ -31,8 +39,10 @@ class mapmaker():
             ['recordinfo','',True,''],
             ['sep',';',False,''],
             ['outfile','',True,''],
+            ['output','svg',False,''],
 
             ['datesel','',False,''],
+
             
             ['shapefile','',True,''],
             ['shape_key','',True,''],
@@ -48,6 +58,7 @@ class mapmaker():
 
             ['width',8,False,''],
             ['height',8,False,''],
+            ['resolution',150,False,''],
 
             ['pxwidth',500,False,''],
             ['pxheight',500,False,''],
@@ -70,7 +81,7 @@ class mapmaker():
             ['gradient_transform','log10',False,''],            
             ['gradient_min',0,False,''],
             ['gradient_max','max',False,''],
-            ['gradient_steps',40,False,''],
+            ['gradient_steps',5,False,''],
             ['missing_color',(1,1,1),False,''],
 
             ['movie',False,False,''],
@@ -140,6 +151,7 @@ class mapmaker():
                             maxx=tempx
                         if maxy is None or tempy>maxy:
                             maxy=tempy
+
                             
         self.dx=maxx-minx
         self.dy=maxy-miny
@@ -147,7 +159,17 @@ class mapmaker():
         self.maxx=maxx
         self.miny=miny
         self.maxy=maxy
+        aspect1=self.pxwidth/self.pxheight
+        aspect2=self.dx/self.dy
+        if aspect1<aspect2:
+            print '<'
+            self.scalefactor=self.pxwidth/self.dx;
+        else:
+            print '>'
+            self.scalefactor=self.pxheight/self.dy;
+        
         dxy=(self.dx-self.dy)/2.0
+        
         if dxy<0:
             self.minx+=dxy
             self.maxx-=dxy
@@ -155,6 +177,9 @@ class mapmaker():
             self.miny-=dxy
             self.maxy+=dxy
 
+
+
+        print self.minx, self.maxx, self.miny, self.maxy
 
     def transform_val (self, val):
         transform=self.gradient_transform        
@@ -221,10 +246,11 @@ class mapmaker():
         val=(val-minval)/(1.0*(maxval-minval))   # range van 0 tot 1
         if debug and val!=0:
             print 'preranged val:', val
-        val=int(self.gradient_steps*val)/(self.gradient_steps*1.0)
+        val=int(self.gradient_steps*val)
+        
         if debug and val!=0:
-            print 'ranged val:', val
-        colorval=(1-val,1-val,1)
+            print 'ranged val:', val        
+        colorval=colormap[val]
         return colorval
 
 
@@ -425,16 +451,12 @@ class mapmaker():
         map_shp=self.load_shapefile(self.shapefile)
         self.autoscale(self.zoom)
 
-        if self.output=='png':        
-            fig = pyplot.figure(figsize=(8, 8), dpi=self.resolution )    
-            ax = fig.add_subplot(1,1,1)
-        
-            ax.set_xlim (self.minx, self.maxx)
-            ax.set_ylim (self.miny, self.maxy)
-            ax.axis('off')
-        else:
-            svg=''
-            self.fignr=0
+        fig = pyplot.figure(figsize=(8, 8), dpi=self.resolution )    
+        ax = fig.add_subplot(1,1,1)
+    
+        ax.set_xlim (self.minx, self.maxx)
+        ax.set_ylim (self.miny, self.maxy)
+        ax.axis('off')
         
         title=self.title
         date=self.dateselection
@@ -444,15 +466,13 @@ class mapmaker():
             movie_txt=time.strftime(self.date_print_format,dt)    
         
             movie_x=float(self.label_x)
-            movie_y=float(self.label_y)
-            if self.output=='png':
-                fig.text (movie_x,movie_y,movie_txt)
+            movie_y=float(self.label_y)            
+            fig.text (movie_x,movie_y,movie_txt, family='Corbel')
         
         title_x=getattr(self,'title_x',0.5-len(self.title)*0.0075)
-        title_y=getattr(self,'title_x',0.95)
+        title_y=getattr(self,'title_y',0.95)
 
-        if self.output=='png':
-            fig.text (title_x,title_y,self.title)
+        fig.text (title_x,title_y,self.title, family='Corbel')
 
         self.data_max=self.gradient_max
         self.data_min=self.gradient_min
@@ -465,21 +485,8 @@ class mapmaker():
 
     
         #colormap toevoegen
-        if self.output=='png':
-            self.plot_shapefile(map_shp,mapdata, self.shape_key, ax, self.shape_bordercolor, self.shape_borderwidth)
-        else:
-            svg+=self.save_shapefile_as_svg(map_shp, mapdata, self.shape_key)
-
-        if self.output!='png':
-            f=open(self.outfile+'.svg','w')
-            hdr='<svg xmlns="http://www.w3.org/2000/svg"\n xmlns:xlink="http://www.w3.org/1999/xlink"\n'
-            hdr+=' height="%d" width="%d"  viewBox="%.5f %.5f %.5f %.5f" >\n' %  (self.pxwidth, self.pxheight, 0,0, self.width, self.height)   #(self.minx, self.miny, self.maxx, self.max)
-
-            svg=hdr+svg+'\n</svg>'
-            
-            f.write(svg)
-            f.close()
-            sys.exit()
+        self.plot_shapefile(map_shp,mapdata, self.shape_key, ax, self.shape_bordercolor, self.shape_borderwidth)
+        
             
 
         outline_shp=self.load_shapefile(self.outline_shapefile)
@@ -498,9 +505,8 @@ class mapmaker():
         colorlist=[]
         maxdata=self.data_max
         logstep=math.log10(maxdata)/(colorsteps*1.0)    
-        for i in range (0,colorsteps):
-            val=pow(10,i*logstep)    
-            colorlist.append(self.rescale_color (val, debug=False))    
+        for c in colormap:
+            colorlist.append(c)    
         cmap = mp.colors.ListedColormap(colorlist,'grad',colorsteps)
         norm = mp.colors.LogNorm(vmin=1, vmax=maxdata)
 
@@ -529,12 +535,15 @@ class mapmaker():
                                         cmap=cmap,
                                         norm=norm,
                                         ticks=ticks,
-                                        format='%.0f',
+                                        format='%.0f',                                        
                                         spacing='proportional',
                                         orientation='vertical')        
                      
         if self.ticklabels is not None:
-            cb.set_ticklabels(self.ticklabels)    
+            cb.set_ticklabels(self.ticklabels)
+    
+        for l in cb.ax.yaxis.get_ticklabels():
+            l.set_family("Corbel")
 
         plot_ts=getattr(self,'plot_ts',None)
         if  plot_ts==True:
@@ -563,8 +572,9 @@ class mapmaker():
             if self.movie==True:
                 self.outfile+='_'+currentdate
             print 'save:',self.outfile, maxdata
-            
-        pyplot.savefig(self.outfile+'.png', dpi=self.resolution, facecolor=self.backgroundcolor)
+
+        self.output='svg'
+        pyplot.savefig(self.outfile+'.'+self.output, dpi=self.resolution, facecolor=self.backgroundcolor)
         pyplot.close()
         
 
@@ -585,10 +595,10 @@ class mapmaker():
         miny=self.miny
         dx=self.dx
         dy=self.dy
-        width=self.width
-        height=self.height
+        width=self.pxwidth
+        height=self.pxheight
         self.fignr+=1              
-        borderwidth=0.01
+        borderwidth=0.5
         bordercolor='rgb(0,0,0)'
         
         svg='<g id="chart_%d">\n ' % self.fignr
@@ -618,12 +628,12 @@ class mapmaker():
                 y = []
                 s='<path %s stroke="%s" fill="%s" stroke-width="%.5f" id="a%s_%d" data-regio="%s" d=" ' % (classtxt,bordercolor, fillcolor, borderwidth, shape_id, shape_nr, shape_id)
                 point=poly['points'][0]        
-                tempx = ((float(point['x'])-minx)/dx)*width
-                tempy = height - ((float(point['y'])-miny)/dy)*height
+                tempx = (float(point['x'])-minx)*self.scalefactor
+                tempy = height - (float(point['y'])-miny)*self.scalefactor
                 s+='M %.2f %.2f' % (tempx, tempy)
                 for point in poly['points']:
-                    tempx = ((float(point['x'])-minx)/dx)*width
-                    tempy = height - ((float(point['y'])-miny)/dy)*height
+                    tempx = (float(point['x'])-minx)*self.scalefactor
+                    tempy = height - (float(point['y'])-miny)*self.scalefactor
                     x.append(tempx)
                     y.append(tempy)
                     
